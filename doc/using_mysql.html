@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="ExDoc v0.14.3">
+    <title>Using MySQL – Phoenix Guides v1.3.0-dev</title>
+    <link rel="stylesheet" href="dist/app-091c05798a.css" />
+    
+    <script src="dist/sidebar_items.js"></script>
+  </head>
+  <body data-type="extras">
+    <script>if(localStorage.getItem('night-mode')) document.body.className += ' night-mode';</script>
+
+<div class="main">
+<button class="sidebar-toggle">
+  <i class="icon-menu"></i>
+</button>
+<section class="sidebar">
+
+  
+  <a href="http://www.phoenixframework.org" class="sidebar-projectLink">
+    <div class="sidebar-projectDetails">
+      <h1 class="sidebar-projectName">
+        Phoenix Guides
+      </h1>
+      <h2 class="sidebar-projectVersion">
+        v1.3.0-dev
+      </h2>
+    </div>
+    
+      <img src="assets/logo.png" alt="Phoenix Guides" class="sidebar-projectImage">
+    
+  </a>
+
+  <div class="sidebar-search">
+    <i class="icon-search"></i>
+    <input type="text" class="sidebar-searchInput" placeholder="search" autocomplete="off" />
+  </div>
+
+  <ul class="sidebar-listNav">
+    <li><a id="extras-list" href="#full-list">GUIDES</a></li>
+
+    
+      <li><a id="modules-list" href="#full-list">Modules</a></li>
+    
+
+    
+
+    
+  </ul>
+  <div class="gradient"></div>
+  <ul id="full-list" class="sidebar-fullList"></ul>
+</section>
+
+<section class="content">
+  <div class="content-outer">
+    <div id="content" class="content-inner">
+
+
+<h1>Using MySQL</h1>
+<p>Phoenix applications are configured to use PostgreSQL by default, but what if we want to use MySQL instead? In this guide, we’ll walk through changing that default whether we are about to create a new application, or whether we have an existing one configured for PostgreSQL.</p>
+<p>If we are about to create a new application, configuring our application to use MySQL is easy. We can simply pass the <code class="inline">--database mysql</code> flag to <code class="inline">phoenix.new</code> and everything will be configured correctly.</p>
+<pre><code class="console">$ mix phx.new hello --database mysql</code></pre>
+<p>This will set up all the correct dependencies and configuration for us automatically. Once we install those dependencies with <code class="inline">mix deps.get</code>, we’ll be ready to begin working with Ecto in our application.</p>
+<p>If we have an existing application, all we need to do is switch adapters and make some small configuration changes.</p>
+<p>To switch adapters, we need to remove the Postgrex dependency and add a new one for Mariaex instead.</p>
+<p>Let’s open up our <code class="inline">mix.exs</code> file and do that now.</p>
+<pre><code class="elixir">defmodule Hello.Mixfile do
+  use Mix.Project
+
+  . . .
+  # Specifies your project dependencies
+  #
+  # Type `mix help deps` for examples and options
+  defp deps do
+    [{:phoenix, &quot;~&gt; 1.2.0&quot;},
+     {:phoenix_ecto, &quot;~&gt; 3.0&quot;},
+     {:mariaex, &quot;~&gt; 0.6.1&quot;, override: true},
+     {:phoenix_html, &quot;~&gt; 2.3&quot;},
+     {:phoenix_live_reload, &quot;~&gt; 1.0&quot;, only: :dev},
+     {:cowboy, &quot;~&gt; 1.0&quot;}]
+  end
+end</code></pre>
+<p>We also need to remove the <code class="inline">:postgrex</code> app from our list of applications and substitute the <code class="inline">:mariaex</code> app instead. Let’s do that in <code class="inline">mix.exs</code> as well.</p>
+<pre><code class="elixir">defmodule Hello.Mixfile do
+  use Mix.Project
+
+. . .
+def application do
+  [mod: {MysqlTester, []},
+  extra_applications: [:logger, :runtime_tools]]
+end
+. . .</code></pre>
+<p>Next, we need to configure our new adapter. Let’s open up our <code class="inline">config/dev.exs</code> file and do that.</p>
+<pre><code class="elixir">config :hello, Hello.Repo,
+adapter: Ecto.Adapters.MySQL,
+username: &quot;root&quot;,
+password: &quot;&quot;,
+database: &quot;hello_dev&quot;</code></pre>
+<p>If we have an existing configuration block for our <code class="inline">Hello.Repo</code>, we can simply change the values to match our new ones. The most important thing is to make sure we are using the MySQL adapter <code class="inline">adapter: Ecto.Adapters.MySQL,</code>.</p>
+<p>We also need to configure the correct values in the <code class="inline">config/test.exs</code> and <code class="inline">config/prod.secret.exs</code> files as well.</p>
+<p>Now all we need to do is fetch our new dependency, and we’ll be ready to go.</p>
+<pre><code class="console">$ mix do deps.get, compile</code></pre>
+<p>With our new adapter installed and configured, we’re ready to create our database.</p>
+<pre><code class="console">$ mix ecto.create
+The database for Hello.repo has been created.</code></pre>
+<p>We’re also ready to run any migrations, or do anything else with Ecto that we might choose.</p>
+<pre><code class="console">$ mix ecto.migrate
+[info] == Running Hello.Repo.Migrations.CreateUser.change/0 forward
+[info] create table users
+[info] == Migrated in 0.2s</code></pre>
+
+      <footer class="footer">
+        <p>
+          <span class="line">
+            Built using
+            <a href="https://github.com/elixir-lang/ex_doc" title="ExDoc" rel="help" target="_blank">ExDoc</a> (v0.14.3),
+          </span>
+          <span class="line">
+            designed by
+            <a href="https://twitter.com/dignifiedquire" target="_blank" title="@dignifiedquire">Friedel Ziegelmayer</a>.
+            </span>
+        </p>
+        <button class="night-mode-toggle" />
+      </footer>
+    </div>
+  </div>
+</section>
+</div>
+  <script src="dist/app-574613960f.js"></script>
+  </body>
+</html>
+

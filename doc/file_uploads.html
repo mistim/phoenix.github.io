@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="ExDoc v0.14.3">
+    <title>File Uploads – Phoenix Guides v1.3.0-dev</title>
+    <link rel="stylesheet" href="dist/app-091c05798a.css" />
+    
+    <script src="dist/sidebar_items.js"></script>
+  </head>
+  <body data-type="extras">
+    <script>if(localStorage.getItem('night-mode')) document.body.className += ' night-mode';</script>
+
+<div class="main">
+<button class="sidebar-toggle">
+  <i class="icon-menu"></i>
+</button>
+<section class="sidebar">
+
+  
+  <a href="http://www.phoenixframework.org" class="sidebar-projectLink">
+    <div class="sidebar-projectDetails">
+      <h1 class="sidebar-projectName">
+        Phoenix Guides
+      </h1>
+      <h2 class="sidebar-projectVersion">
+        v1.3.0-dev
+      </h2>
+    </div>
+    
+      <img src="assets/logo.png" alt="Phoenix Guides" class="sidebar-projectImage">
+    
+  </a>
+
+  <div class="sidebar-search">
+    <i class="icon-search"></i>
+    <input type="text" class="sidebar-searchInput" placeholder="search" autocomplete="off" />
+  </div>
+
+  <ul class="sidebar-listNav">
+    <li><a id="extras-list" href="#full-list">GUIDES</a></li>
+
+    
+      <li><a id="modules-list" href="#full-list">Modules</a></li>
+    
+
+    
+
+    
+  </ul>
+  <div class="gradient"></div>
+  <ul id="full-list" class="sidebar-fullList"></ul>
+</section>
+
+<section class="content">
+  <div class="content-outer">
+    <div id="content" class="content-inner">
+
+
+<h1>File Uploads</h1>
+<p>One common task for web applications is uploading files. These files might be images, videos, PDFs, or files of any other type. In order to upload files through an HTML interface, we need a <code class="inline">file</code> input tag in a multipart form.</p>
+<p>Plug provides a <code class="inline">Plug.Upload</code> struct to hold the data from the <code class="inline">file</code> input. A <code class="inline">Plug.Upload</code> struct will automatically appear in our request parameters if a user has selected a file when they submit the form.</p>
+<p>Let’s take this one piece at a time.</p>
+<p>In the <a href="ecto_models.html"><code class="inline">Ecto Models Guide</code></a>, we generated an HTML resource for users. We can reuse the form we generated there in order to demonstrate how file uploads work in Phoenix. Please see that guide for instructions on generating the users resource we’ll be using here.</p>
+<p>The first thing we need to do is change our form into a multipart form. The <code class="inline">form_for/4</code> function accepts a keyword list of options where we can specify this.</p>
+<p>Here is the form from <code class="inline">lib/hello_web/templates/user/form.html.eex</code> with that change in place.</p>
+<pre><code class="elixir">&lt;%= form_for @changeset, @action, [multipart: true], fn f -&gt; %&gt;
+. . .</code></pre>
+<p>Once we have a multipart form, we need a <code class="inline">file</code> input. Here’s how we would do that, also in <code class="inline">form.html.eex</code>.</p>
+<pre><code class="html">. . .
+  &lt;div class=&quot;form-group&quot;&gt;
+    &lt;label&gt;Photo&lt;/label&gt;
+    &lt;%= file_input f, :photo, class: &quot;form-control&quot; %&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;form-group&quot;&gt;
+    &lt;%= submit &quot;Submit&quot;, class: &quot;btn btn-primary&quot; %&gt;
+  &lt;/div&gt;
+&lt;% end %&gt;</code></pre>
+<p>When rendered, here’s what the HTML for that input looks like.</p>
+<pre><code class="html">&lt;div class=&quot;form-group&quot;&gt;
+  &lt;label&gt;Photo&lt;/label&gt;
+  &lt;input class=&quot;form-control&quot; id=&quot;user_photo&quot; name=&quot;user[photo]&quot; type=&quot;file&quot;&gt;
+&lt;/div&gt;</code></pre>
+<p>Note the <code class="inline">name</code> attribute of our <code class="inline">file</code> input. This will create the <code class="inline">&quot;photo&quot;</code> key in the <code class="inline">user_params</code> map which will be available in our controller action.</p>
+<p>That’s it from the form side. Now when users submit the form, a <code class="inline">POST</code> request will route to our <code class="inline">Hello.UserController</code> <code class="inline">create/2</code> action.</p>
+<blockquote><p>Note: This photo input does not need to be part of our model for it to come across in the <code class="inline">user_params</code>. If we want to persist any properties of the photo in a database, however, we would need to add it to our <code class="inline">Hello.User</code> model’s schema.</p>
+</blockquote>
+<p>Before we begin, let’s add <code class="inline">IO.inspect user_params</code> to the top of our <code class="inline">Hello.create/2</code> action in <code class="inline">lib/hello_web/controllers/user_controller.ex</code>. This will show the <code class="inline">user_params</code> in our development log so we can better see what’s happening.</p>
+<pre><code class="elixir">. . .
+  def create(conn, %{&quot;user&quot; =&gt; user_params}) do
+    IO.inspect user_params
+. . .</code></pre>
+<p>Since we generated an HTML resource, we can now start our server with <code class="inline">mix phoenix.server</code>, visit <a href="http://localhost:4000/users/new">http://localhost:4000/users/new</a>, and create a new user with a photo.</p>
+<p>When we do that, this is what our <code class="inline">user_params</code> look like in the log.</p>
+<pre><code class="elixir">%{&quot;bio&quot; =&gt; &quot;Guitarist&quot;, &quot;email&quot; =&gt; &quot;dweezil@example.com&quot;, &quot;name&quot; =&gt; &quot;Dweezil Zappa&quot;, &quot;number_of_pets&quot; =&gt; &quot;3&quot;,
+&quot;photo&quot; =&gt; %Plug.Upload{content_type: &quot;image/jpg&quot;, filename: &quot;cute-kitty.jpg&quot;, path: &quot;/var/folders/_6/xbsnn7tx6g9dblyx149nrvbw0000gn/T//plug-1434/multipart-558399-917557-1&quot;}}</code></pre>
+<p>We have a “photo” key which maps to the pre-populated <code class="inline">Plug.Upload</code> struct representing our uploaded photo.</p>
+<p>To make this easier to read, let’s just focus on the struct itself.</p>
+<pre><code class="elixir">%Plug.Upload{content_type: &quot;image/jpg&quot;, filename: &quot;cute-kitty.jpg&quot;, path: &quot;/var/folders/_6/xbsnn7tx6g9dblyx149nrvbw0000gn/T//plug-1434/multipart-558399-917557-1&quot;}</code></pre>
+<p><code class="inline">Plug.Upload</code> provides the file’s content type, original filename, and path to the temporary file which Plug created for us. In our case, <code class="inline">&quot;/var/folders/_6/xbsnn7tx6g9dblyx149nrvbw0000gn/T//plug-1434/&quot;</code> is the directory which Plug created to put uploaded files in. It will persist across requests. <code class="inline">&quot;multipart-558399-917557-1&quot;</code> is the name Plug gave to our uploaded file. If we had multiple <code class="inline">file</code> inputs and if the user selected photos for all of them, we would have multiple files scattered in temporary directories. Plug will make sure all the filenames are unique.</p>
+<blockquote><p>Note: This file is temporary, and Plug will remove it from the directory as the request completes. If we need to do anything with this file, we need to do it before then.</p>
+</blockquote>
+<p>Once we have the <code class="inline">Plug.Upload</code> struct available in our controller, we can perform any operation on it we want. We can check to make sure the file exists with <a href="http://elixir-lang.org/docs/stable/elixir/File.html#exists?/1"><code class="inline">File.exists?/1</code></a>, copy it somewhere else on the filesystem with <a href="http://elixir-lang.org/docs/stable/elixir/File.html#cp/2"><code class="inline">File.cp/2</code></a>, send it to S3 with an external library, or even send it back to the client with <a href="http://hexdocs.pm/plug/Plug.Conn.html#send_file/5">Plug.Conn.send_file/5</a>.</p>
+<p>For example, in production system, we may want to copy the file to a root directory, such as <code class="inline">/media</code>. When doing so, it is important to guarantee the names are unique. For instance, if we are allowing users to upload profile pictures, we could use the user id to generate a unique name:</p>
+<pre><code class="elixir">if upload = user_params[&quot;photo&quot;] do
+  extension = Path.extname(upload.filename)
+  File.cp(upload.path, &quot;/media/#{user.id}-profile#{extension}&quot;)
+end</code></pre>
+<p>Then a Plug.Static plug could be set in your <code class="inline">lib/my_app/endpoint.ex</code> to serve the files at “/media”:</p>
+<pre><code class="elixir">plug Plug.Static, at: &quot;/uploads&quot;, from: &quot;/media&quot;</code></pre>
+<p>The uploaded file can now be accessed from your browsers using a path such as “/uploads/1-profile.jpg”. In practice, there are other concerns you want to handle when uploading files, such validating extensions, encoding names and so on. Many times, using a library that already handles such cases, is prefered.</p>
+<p>Finally, notice that when there is no data from the <code class="inline">file</code> input, we get neither the “photo” key nor a <code class="inline">Plug.Upload</code> struct. Here are the <code class="inline">user_params</code> from the log.</p>
+<pre><code class="elixir">%{&quot;bio&quot; =&gt; &quot;Guitarist&quot;, &quot;email&quot; =&gt; &quot;dweezil@example.com&quot;, &quot;name&quot; =&gt; &quot;Dweezil Zappa&quot;, &quot;number_of_pets&quot; =&gt; &quot;3&quot;}</code></pre>
+<h2 id="configuring-upload-limits" class="section-heading">
+  <a href="#configuring-upload-limits" class="hover-link"><i class="icon-link"></i></a>
+  Configuring upload limits
+</h2>
+
+<p>The conversion from the data being sent by the form to an actual <code class="inline">Plug.Upload</code> is done by the <code class="inline">Plug.Parsers</code> plug which we can find inside <code class="inline">HelloWeb.Endpoint</code>:</p>
+<pre><code class="elixir">plug Plug.Parsers,
+  parsers: [:urlencoded, :multipart, :json],
+  pass: [&quot;*/*&quot;],
+  json_decoder: Poison</code></pre>
+<p>Besides the options above, <code class="inline">Plug.Parsers</code> accepts other options to control data upload:</p>
+<ul>
+<li><code class="inline">:length</code> - sets the max body length to read, defaults to <code class="inline">8_000_000</code> bytes
+</li>
+<li><code class="inline">:read_length</code> - set the amount of bytes to read at one time, defaults to <code class="inline">1_000_000</code> bytes
+</li>
+<li><code class="inline">:read_timeout</code> - set the timeout for each chunk received, defaults to <code class="inline">15_000</code> ms
+</li>
+</ul>
+<p>The first option configures the maximum data allowed. The remaining ones configure how much data we expect to read and its frequency. If the client cannot push data fast enough, the connection will be terminated. Phoenix ships with reasonable defaults but you may want to customize it under special circumstances, for example, if you are expecting really slow clients to send large chunks of data.</p>
+<p>It is also worth pointing out those limits are important as a security mechanism. For example, if we don’t set a limit for data upload, attackers could open up thousands of connections to your application and send one byte every 2 minutes, which would take very long to complete while using up all connections to your server. The limits above expect at least a reasonable amount of progress, making attackers’ lives a bit harder.</p>
+
+      <footer class="footer">
+        <p>
+          <span class="line">
+            Built using
+            <a href="https://github.com/elixir-lang/ex_doc" title="ExDoc" rel="help" target="_blank">ExDoc</a> (v0.14.3),
+          </span>
+          <span class="line">
+            designed by
+            <a href="https://twitter.com/dignifiedquire" target="_blank" title="@dignifiedquire">Friedel Ziegelmayer</a>.
+            </span>
+        </p>
+        <button class="night-mode-toggle" />
+      </footer>
+    </div>
+  </div>
+</section>
+</div>
+  <script src="dist/app-574613960f.js"></script>
+  </body>
+</html>
+

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="ExDoc v0.14.3">
+    <title>Configuration – Phoenix Guides v1.3.0-dev</title>
+    <link rel="stylesheet" href="dist/app-091c05798a.css" />
+    
+    <script src="dist/sidebar_items.js"></script>
+  </head>
+  <body data-type="extras">
+    <script>if(localStorage.getItem('night-mode')) document.body.className += ' night-mode';</script>
+
+<div class="main">
+<button class="sidebar-toggle">
+  <i class="icon-menu"></i>
+</button>
+<section class="sidebar">
+
+  
+  <a href="http://www.phoenixframework.org" class="sidebar-projectLink">
+    <div class="sidebar-projectDetails">
+      <h1 class="sidebar-projectName">
+        Phoenix Guides
+      </h1>
+      <h2 class="sidebar-projectVersion">
+        v1.3.0-dev
+      </h2>
+    </div>
+    
+      <img src="assets/logo.png" alt="Phoenix Guides" class="sidebar-projectImage">
+    
+  </a>
+
+  <div class="sidebar-search">
+    <i class="icon-search"></i>
+    <input type="text" class="sidebar-searchInput" placeholder="search" autocomplete="off" />
+  </div>
+
+  <ul class="sidebar-listNav">
+    <li><a id="extras-list" href="#full-list">GUIDES</a></li>
+
+    
+      <li><a id="modules-list" href="#full-list">Modules</a></li>
+    
+
+    
+
+    
+  </ul>
+  <div class="gradient"></div>
+  <ul id="full-list" class="sidebar-fullList"></ul>
+</section>
+
+<section class="content">
+  <div class="content-outer">
+    <div id="content" class="content-inner">
+
+
+<h1>Configuration</h1>
+<p>Since our Phoenix apps are simply Elixir applications, they  have the same configuration and structure as other Mix projects. Recall that Mix is the build tool used by most Elixir apps.</p>
+<h4>.ex and .exs Files Types</h4>
+<p>The config for our Phoenix app is stored in a combination of <code class="inline">.ex</code> and <code class="inline">.exs</code> files. Although both file types are Elixir scripts, they are compiled differently.</p>
+<p>Our <code class="inline">.exs</code> files are compiled in memory each time they are run (such as on reload), which makes them ideal for storing configuration details and scripts that change often (such as standalone tasks during development).</p>
+<p>Whereas <code class="inline">.ex</code> files are compiled to <code class="inline">.beam</code> files that run on the Erlang Virtual Machine (BEAM), which makes them useful for storing higher level configuration that changes less frequently (such as endpoint and OTP supervisor/worker config).</p>
+<h4>Config Files and Environments</h4>
+<p>Our <code class="inline">mix.exs</code> config file is located in the root folder of our app and contains some important overall config details relating to our app, including compilation paths, dependencies and aliases.</p>
+<p>Phoenix applications are intended to be run with configuration particular to different environments, such as ‘development’ or ‘production’. This allows for an improved developer experience and smoother workflow when deploying apps to production. By default, the <code class="inline">/config</code> folder at the root of our app will include the following config files:</p>
+<p><code class="inline">config.exs</code>, which is our master config file that is common across all our environments. It contains overall app config such as our logging and endpoint details, such as our app url and root directory. Additionally, towards the bottom of this file, we also take the important step of importing the configuration specific to our current environment.  We can easily switch between the different configuration files for our environments by adjusting the value for the <code class="inline">Mix.env</code> environment variable below when we start/deploy our app; for instance, we’d set the value to <code class="inline">&quot;#prod.exs&quot;</code> for our production environment.</p>
+<pre><code class="elixir">...
+# Import environment specific config. This must remain at the bottom
+# of this file so it overrides the configuration defined above.
+import_config &quot;#{Mix.env}.exs&quot;
+...</code></pre>
+<p><code class="inline">dev.exs</code>, which is used to store config details specific to our development environment, such as debugging settings and our database connection details.</p>
+<p><code class="inline">prod.exs</code>, which is used to store config for our production environment, since these settings often need to be different and more strict than our dev or test environments. For instance, in production we use stronger hashing of passwords, which would slow down performance during development or testing, but is an unavoidable expense for a production app.</p>
+<p><code class="inline">prod.secret.exs</code>, which is used to store sensitive configuration details relating to our production environment (such as passwords or API keys), and is thus generally excluded from the version control in our code repository.  Note that config details from this file can be imported into our other files as appropriate.</p>
+<p><code class="inline">test.exs</code>, which is used to store any config details specific to our testing environment.</p>
+<p>We should open each of these files and familiarize ourselves with the contents.</p>
+<p>In addition to these default development (<code class="inline">dev.exs</code>), test (<code class="inline">test.exs</code>) and production (<code class="inline">prod.exs</code>) environment configurations, Phoenix supports the use of custom environment configurations that we can manually add as we get more advanced.</p>
+<h4>Umbrella Apps</h4>
+<p>Umbrella apps enable multiple child applications to run together, which can help to reduce the overall complexity of our app by separating different functionality into smaller apps that run together. While a full discussion of Umbrella Apps extends beyond the scope of this Guide, for now it’s worth simply noting that the configuration of an Umbrella app is slightly different (and in some ways a bit simpler) than what’s outlined above, since much of the configuration details will reside in the config for each of the children apps.</p>
+<h4>Summary</h4>
+<p>Config is an important topic and essential to every app we build. The important points to take away from this guide are that:</p>
+<ul>
+<li>Our <code class="inline">.ex</code> and <code class="inline">.exs</code> files are used to store the configuration for our app.
+</li>
+<li>Our <code class="inline">.exs</code> files are compiled in memory each time they are run which makes them ideal for storing configuration details.
+</li>
+<li>Mix apps include config for development, test and production environments by default, and custom environments can be manually added.
+</li>
+<li>We can store our sensitive production config in our <code class="inline">prod.secret.exs</code> file, outside of version control.
+</li>
+</ul>
+
+      <footer class="footer">
+        <p>
+          <span class="line">
+            Built using
+            <a href="https://github.com/elixir-lang/ex_doc" title="ExDoc" rel="help" target="_blank">ExDoc</a> (v0.14.3),
+          </span>
+          <span class="line">
+            designed by
+            <a href="https://twitter.com/dignifiedquire" target="_blank" title="@dignifiedquire">Friedel Ziegelmayer</a>.
+            </span>
+        </p>
+        <button class="night-mode-toggle" />
+      </footer>
+    </div>
+  </div>
+</section>
+</div>
+  <script src="dist/app-574613960f.js"></script>
+  </body>
+</html>
+

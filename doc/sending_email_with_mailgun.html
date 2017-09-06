@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="ExDoc v0.14.3">
+    <title>Sending Email with Mailgun – Phoenix Guides v1.3.0-dev</title>
+    <link rel="stylesheet" href="dist/app-091c05798a.css" />
+    
+    <script src="dist/sidebar_items.js"></script>
+  </head>
+  <body data-type="extras">
+    <script>if(localStorage.getItem('night-mode')) document.body.className += ' night-mode';</script>
+
+<div class="main">
+<button class="sidebar-toggle">
+  <i class="icon-menu"></i>
+</button>
+<section class="sidebar">
+
+  
+  <a href="http://www.phoenixframework.org" class="sidebar-projectLink">
+    <div class="sidebar-projectDetails">
+      <h1 class="sidebar-projectName">
+        Phoenix Guides
+      </h1>
+      <h2 class="sidebar-projectVersion">
+        v1.3.0-dev
+      </h2>
+    </div>
+    
+      <img src="assets/logo.png" alt="Phoenix Guides" class="sidebar-projectImage">
+    
+  </a>
+
+  <div class="sidebar-search">
+    <i class="icon-search"></i>
+    <input type="text" class="sidebar-searchInput" placeholder="search" autocomplete="off" />
+  </div>
+
+  <ul class="sidebar-listNav">
+    <li><a id="extras-list" href="#full-list">GUIDES</a></li>
+
+    
+      <li><a id="modules-list" href="#full-list">Modules</a></li>
+    
+
+    
+
+    
+  </ul>
+  <div class="gradient"></div>
+  <ul id="full-list" class="sidebar-fullList"></ul>
+</section>
+
+<section class="content">
+  <div class="content-outer">
+    <div id="content" class="content-inner">
+
+
+<h1>Sending Email with Mailgun</h1>
+<p>Sending email from a Phoenix application is really easy. Phoenix does not ship with a library to send emails, but there are various packages available that can help with that.</p>
+<p>The options include <a href="https://github.com/swoosh/phoenix_swoosh">Phoenix Swoosh</a> and <a href="https://github.com/thoughtbot/bamboo">Bamboo</a>.</p>
+<p>If you are only going to use Mailgun, you can use the mailgun package instead:</p>
+<h2 id="using-the-mailgun-package" class="section-heading">
+  <a href="#using-the-mailgun-package" class="hover-link"><i class="icon-link"></i></a>
+  Using the Mailgun package
+</h2>
+
+<p>Before we begin, we’ll need an account with Mailgun - we won’t actually be able to send mail without it. Once we have an account, though, the rest will be straightforward.</p>
+<p>First, <a href="https://mailgun.com/signup">sign up at Mailgun</a>. They have a generous number of free emails per month, so we can get going with a free account.</p>
+<p>Once we have an account, we’ll get a sandbox through which we can send mail. The url of that sandbox will be our domain unless we choose to create a custom one through Mailgun.</p>
+<p>Now that we have an account, we’ll need to add <code class="inline">mailgun</code> as a dependency to our project. We’ll do that in the <code class="inline">deps/0</code> function in <code class="inline">mix.exs</code>.</p>
+<pre><code class="elixir">defp deps do
+  [{:phoenix, &quot;~&gt; 1.2.0&quot;},
+   {:phoenix_ecto, &quot;~&gt; 3.0&quot;},
+   {:postgrex, &quot;&gt;= 0.0.0&quot;},
+   {:phoenix_html, &quot;~&gt; 2.3&quot;},
+   {:phoenix_live_reload, &quot;~&gt; 1.0&quot;, only: :dev},
+   {:cowboy, &quot;~&gt; 1.0&quot;},
+   {:mailgun, &quot;~&gt; 0.1.2&quot;}]
+end</code></pre>
+<p>Next, we’ll need to run <code class="inline">mix deps.get</code> to bring the <code class="inline">mailgun</code> package into our application. In the case of a dependency conflict error with Poison, add the following line as well:</p>
+<pre><code class="elixir">{:poison, &quot;~&gt; 2.1&quot;, override: true}</code></pre>
+<h3>Configuration</h3>
+<p>We’ll also need to configure our <code class="inline">:mailgun_domain</code> and <code class="inline">:mailgun_key</code> in <code class="inline">config/config.ex</code>.</p>
+<p>The <code class="inline">:mailgun_domain</code> will be a full url, something like this <code class="inline">https://api.mailgun.net/v3/sandbox-our-domain.mailgun.org</code>. The <code class="inline">:mailgun_key</code> will be a long string - “key-another-long-string”.</p>
+<p>For security reasons, it’s important to not commit these values to a public source code repository. There are a couple of ways we can accomplish this.</p>
+<p>One way is quick, but it requires us to set environment variables for our <code class="inline">:mailgun_domain</code> and <code class="inline">:mailgun_key</code> in all of our environments - development, production, and whichever other environments we might define. With the environment variables set, we can reference them in our <code class="inline">config/config.exs</code> file.</p>
+<pre><code class="elixir">config :hello,
+       mailgun_domain: System.get_env(&quot;MAILGUN_DOMAIN&quot;),
+       mailgun_key: System.get_env(&quot;MAILGUN_API_KEY&quot;)</code></pre>
+<p>There’s another way which doesn’t require environment variables for all environments, but is a little more complex to set up. This method mimics the way that <code class="inline">config/prod.secret.exs</code> works by creating a <code class="inline">config/config.secret.exs</code> file which will apply to all environments. We won’t be using <code class="inline">prod.secret.exs</code> itself, because we will need these configuration values in development as well as production. Here goes.</p>
+<p>The first thing we will do is add a line to the <code class="inline">.gitignore</code> file for a new <code class="inline">config/config.secret.exs</code> file. This will keep <code class="inline">config.secret.exs</code> out of our git repository.</p>
+<pre><code class="elixir">. . .
+# The config/prod.secret.exs file by default contains sensitive
+# data and you should not commit it into version control.
+#
+# Alternatively, you may comment the line below and commit the
+# secrets file as long as you replace its contents by environment
+# variables.
+/config/prod.secret.exs
+/config/config.secret.exs</code></pre>
+<p>The next step is to create the <code class="inline">config/config.secret.exs</code> file with our <code class="inline">mailgun</code> configuration in it.</p>
+<pre><code class="elixir">use Mix.Config
+
+config :hello,
+       mailgun_domain: &quot;https://api.mailgun.net/v3/sandbox-our-domain.mailgun.org&quot;,
+       mailgun_key: &quot;key-another-long-string&quot;</code></pre>
+<p>Finally, we’ll need to import <code class="inline">config.secret.exs</code> into our regular <code class="inline">config/config.exs</code> file.</p>
+<pre><code class="elixir">. . .
+# Import environment specific config. This must remain at the bottom
+# of this file so it overrides the configuration defined above.
+import_config &quot;#{Mix.env}.exs&quot;
+import_config &quot;config.secret.exs&quot;</code></pre>
+<p>Since our <code class="inline">config/config.secret.exs</code> file won’t be in our repository, we’ll need to take some extra steps when we deploy our application. Please see the <a href="deployment.html">Deployment Introduction Guide</a> for more information.</p>
+<h3>The Client Module</h3>
+<p>In order for our application to interact with Mailgun, we’ll need a client module. Let’s define one here <code class="inline">lib/hello/mailer.ex</code>. When we <code class="inline">use</code> the <code class="inline">Mailgun.Client</code> module in the second line, we pass our configuration to the <code class="inline">mailgun</code> package, and we import <code class="inline">mailgun</code>’s <code class="inline">send_email/1</code> function into our mailer.</p>
+<pre><code class="elixir">defmodule Hello.Mailer do
+  use Mailgun.Client,
+      domain: Application.get_env(:hello, :mailgun_domain),
+      key: Application.get_env(:hello, :mailgun_key)
+end</code></pre>
+<blockquote><p>Note The filesystem watcher does not monitor files in the <code class="inline">lib</code> directory for changes in order to recompile them. This means that if we update the mailer client, we’ll need to restart the server in order for those changes to take effect.</p>
+</blockquote>
+<p>With this in place, we can start creating our custom email functions. Web applications may send any number of different types of emails - welcome emails after signup, password confirmations, activity notifications - the list goes on. For each type of email, we’ll define a new function which will call <code class="inline">send_email/1</code>, passing in a keyword list of arguments.</p>
+<p>Let’s say we want to send a welcome email to new users formatted as plain text. We’ll need to know who to send the email to, as well as the “from” address, subject, and body of the email. This will be sent as a plain text email because we’ve specified the <code class="inline">:text</code> option.</p>
+<pre><code class="elixir">def send_welcome_text_email(email_address) do
+  send_email to: email_address,
+             from: &quot;us@example.com&quot;,
+             subject: &quot;Welcome!&quot;,
+             text: &quot;Welcome to Hello!&quot;
+end</code></pre>
+<p>Sending this email is as easy as invoking the function with an email address, from wherever we want to in our application.</p>
+<pre><code class="elixir">Hello.Mailer.send_welcome_text_email(&quot;us@example.com&quot;)</code></pre>
+<p>Since we’re just getting started, it would be great to test this out locally without hitting Mailgun. The <code class="inline">mailgun</code> package gives us a very easy way to do this. In the client module, we set the mode to <code class="inline">:test</code> and provide a path to a file for <code class="inline">mailgun</code> to write out the JSON representation of our emails.</p>
+<p>Let’s add those to our client module at <code class="inline">lib/hello/mailer.ex</code>.</p>
+<pre><code class="elixir">defmodule Hello.Mailer do
+  use Mailgun.Client, domain: Application.get_env(:my_app, :mailgun_domain),
+                      key: Application.get_env(:my_app, :mailgun_key),
+                      mode: :test, # Alternatively use Mix.env while in the test environment.
+                      test_file_path: &quot;/tmp/mailgun.json&quot;
+  . . .
+end</code></pre>
+<p>Let’s try this out from <code class="inline">iex</code>. We’ll use <code class="inline">iex -S mix phoenix.server</code> in order to interact with a running Phoenix application. Once we’re in an <code class="inline">iex</code> session, we can call our welcome email function, passing in the address we want to send the email to.</p>
+<pre><code class="console">$ iex -S mix phoenix.server
+. . .
+iex&gt; Hello.Mailer.send_welcome_text_email(&quot;us@example.com&quot;)
+{:ok, &quot;OK&quot;}</code></pre>
+<p>In test mode, the <code class="inline">send_mail/1</code> function will always return <code class="inline">{:ok, &quot;OK&quot;}</code>.</p>
+<p>Now, we can see the results in the output file.</p>
+<pre><code class="console">$ more /tmp/mailgun.json
+{&quot;to&quot;:&quot;us@example.com&quot;,&quot;text&quot;:&quot;Welcome to Hello!&quot;,&quot;subject&quot;:&quot;Welcome!&quot;,&quot;from&quot;:&quot;Mailgun Sandbox &lt;postmaster@sandbox-our-domain.mailgun.org&gt;&quot;}</code></pre>
+<p>We can send HTML emails as well. To do this, we can define a new function which uses an <code class="inline">:html</code> key instead of <code class="inline">:text</code>. The HTML value we use will need to be a string.</p>
+<pre><code class="elixir">def send_welcome_html_email(email_address) do
+  send_email to: email_address,
+             from: &quot;us@example.com&quot;,
+             subject: &quot;Welcome!&quot;,
+             html: &quot;&lt;strong&gt;Welcome to Hello&lt;/strong&gt;&quot;
+end</code></pre>
+<p>Notice that we have some duplication here in the value of the “from” lines in both functions. We can fix that with a module attribute.</p>
+<pre><code class="elixir">defmodule Hello.Mailer do
+  . . .
+  @from &quot;us@example.com&quot;
+  . . .</code></pre>
+<p>If we substitute our module attribute for the string in the <code class="inline">:from</code> lines, our two functions will look like this.</p>
+<pre><code class="elixir">def send_welcome_text_email(email_address) do
+  send_email to: email_address,
+             from: @from,
+             subject: &quot;Welcome!&quot;,
+             text: &quot;Welcome to Hello!&quot;
+end
+
+def send_welcome_html_email(email_address) do
+  send_email to: email_address,
+             from: @from,
+             subject: &quot;Welcome!&quot;,
+             html: &quot;&lt;strong&gt;Welcome to Hello&lt;/strong&gt;&quot;
+end</code></pre>
+<p>When we call the <code class="inline">send_welcome_html_email/1</code> function, we get almost the same output, with the HTML content instead of the text content.</p>
+<pre><code class="console">$ iex -S mix phoenix.server
+
+iex&gt; Hello.Mailer.send_welcome_html_email(&quot;us@example.com&quot;)
+{:ok, &quot;OK&quot;}</code></pre>
+<p>Here’s the output in <code class="inline">/tmp/mailgun.json</code>.</p>
+<pre><code class="console">$ more /tmp/mailgun.json
+{&quot;to&quot;:&quot;them@example.com&quot;,&quot;subject&quot;:&quot;Welcome!&quot;,&quot;html&quot;:&quot;&lt;strong&gt;Welcome to Hello Test&lt;/strong&gt;&quot;,&quot;from&quot;:&quot;Mailgun Sandbox &lt;postmaster@sandbox-our-domain.mailgun.org&gt;&quot;}</code></pre>
+<p>For many email uses, it’s good to have clients try to render an HTML version first, then fall back to plain text if they are unable to do so. Let’s write a new <code class="inline">send_welcome_email/1</code> function which will supersede the other two welcome email functions. In it, we’ll simply use both <code class="inline">:text</code> and <code class="inline">:html</code> options. This will produce a multi-part email with the text section separated from the HTML section. Each will appear in the order it is defined in the function.</p>
+<pre><code class="elixir">def send_welcome_email(email_address) do
+  send_email to: email_address,
+             from: @from,
+             subject: &quot;Welcome!&quot;,
+             text: &quot;Welcome to Hello!&quot;,
+             html: &quot;&lt;strong&gt;Welcome to Hello&lt;/strong&gt;&quot;
+end</code></pre>
+<p>When we call our new function, this is what we get.</p>
+<pre><code class="console">$ more /tmp/mailgun.json
+
+{&quot;to&quot;:&quot;us@example.com&quot;,&quot;text&quot;:&quot;Welcome to Hello!&quot;,&quot;subject&quot;:&quot;Welcome!&quot;,&quot;html&quot;:&quot;&lt;strong&gt;Welcome to Hello Test&lt;/strong&gt;&quot;,&quot;from&quot;:&quot;Mailgun Sandbox &lt;postmaster@sandbox-our-domain.mailgun.org&gt;&quot;}</code></pre>
+<p>Let’s take our client out of test mode by removing the <code class="inline">:mode</code> and <code class="inline">:test_file_path</code> options.</p>
+<pre><code class="elixir">defmodule Hello.Mailer do
+  use Mailgun.Client,
+      domain: Application.get_env(:hello, :mailgun_domain),
+      key: Application.get_env(:hello, :mailgun_key)
+  . . .</code></pre>
+<p>When we restart the application and call our <code class="inline">send_welcome_email/1</code> function, we actually get a response back from Mailgun telling us our email has been queued.</p>
+<pre><code class="console">iex&gt; Hello.Mailer.send_welcome_email(&quot;us@example.com&quot;)
+{:ok,
+ &quot;{\n  \&quot;id\&quot;: \&quot;&lt;20150820050046.numbers.more_numbers@sandbox-our-domain.mailgun.org&gt;\&quot;,\n  \&quot;message\&quot;: \&quot;Queued. Thank you.\&quot;\n}&quot;}</code></pre>
+<p>Great! Time to check our inbox.</p>
+<p>Looking at the original source of our email, we can see that it is indeed a multipart email with two parts. The first is our text email, with a Content-Type of “text/plain”. The second is our HTML email with a Content-Type of “text/html”.</p>
+<pre><code class="elixir">To: them@example.com
+From: Mailgun Sandbox
+ &lt;postmaster@sandbox-our-domain.mailgun.org&gt;
+Subject: Welcome!
+Mime-Version: 1.0
+Content-Type: multipart/alternative; boundary=&quot;ab2eaf529cf8442b93154d6e3d98896e&quot;
+
+--ab2eaf529cf8442b93154d6e3d98896e
+Content-Type: text/plain; charset=&quot;ascii&quot;
+Mime-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+Welcome to Hello!
+--ab2eaf529cf8442b93154d6e3d98896e
+Content-Type: text/html; charset=&quot;ascii&quot;
+Mime-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+&lt;strong&gt;Welcome to Hello Test&lt;/strong&gt;
+--ab2eaf529cf8442b93154d6e3d98896e--</code></pre>
+<h3>Tidying Up</h3>
+<p>What we’ve written so far is fine, but for a real-world welcome email, we’re going to need more than a few words of text or a single HTML tag. With more text or HTML, though, our <code class="inline">send_welcome_email/1</code> will become messy quite quickly. The solution is private functions which cordon off the complexity behind a descriptive name.</p>
+<p>In our <code class="inline">Hello.Mailer</code> module, we can define a private <code class="inline">welcome_text/0</code> function which uses a heredoc to define a string literal for the text that makes up the body of our email.</p>
+<pre><code class="elixir">. . .
+defp welcome_text do
+  &quot;&quot;&quot;
+  Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+  &quot;&quot;&quot;
+end
+. . .</code></pre>
+<p>Now we can use it in our <code class="inline">send_welcome_email/1</code> function.</p>
+<pre><code class="elixir">def send_welcome_email(email_address) do
+  send_email to: email_address,
+             from: @from,
+             subject: &quot;Welcome!&quot;,
+             text: welcome_text,
+             html: &quot;&lt;strong&gt;Welcome to Hello&lt;/strong&gt;&quot;
+end</code></pre>
+<p>If we’re going to render anything other than the simplest HTML while still having a readable <code class="inline">send_welcome_email/1</code> function, using bare HTML strings is going to present problems as well. Rendering templates fixes that, but we need a string value for the <code class="inline">:html</code> key. The <code class="inline">Phoenix.View.render_to_string/3</code> function will do just what we need.</p>
+<pre><code class="elixir">def send_welcome_email(email_address) do
+  send_email to: email_address,
+             from: @from,
+             subject: &quot;Welcome!&quot;,
+             text: welcome_text,
+             html: Phoenix.View.render_to_string(Hello.EmailView, &quot;welcome.html&quot;, %{})
+end</code></pre>
+<p>To make this example work, we’ll need the same components that we would use to render any template in Phoenix.</p>
+<p>First, we’ll need a basic <code class="inline">Hello.EmailView</code> defined at <code class="inline">lib/hello_web/views/email_view.ex</code>.</p>
+<pre><code class="elixir">defmodule Hello.EmailView do
+  use Hello.Web, :view
+end</code></pre>
+<p>We’ll also need a new <code class="inline">email</code> directory in <code class="inline">lib/hello_web/templates</code> with a <code class="inline">welcome.html.eex</code> template in it.</p>
+<pre><code class="html">&lt;div class=&quot;jumbotron&quot;&gt;
+  &lt;h2&gt;Welcome to Hello!&lt;/h2&gt;
+&lt;/div&gt;</code></pre>
+<blockquote><p>Note: If we need to use any path or url helpers in our template, we will need to pass the endpoint instead of a connection struct for the first argument. This is because we won’t be in the context of a request, so <code class="inline">@conn</code> won’t be available. For example, we will need to write this</p>
+</blockquote>
+<pre><code class="elixir">alias Hello
+Router.Helpers.page_url(Endpoint, :index)</code></pre>
+<p>instead of this.</p>
+<pre><code class="elixir">Router.Helpers.page_path(@conn, :index)</code></pre>
+<p>If we have any other values we need to pass into the template, we can pass a map of them as the third argument to <code class="inline">Phoenix.View.render_to_string/3</code>.</p>
+<p>We can put the render call behind a private function as well, just as we did with <code class="inline">welcome_text/0</code>.</p>
+<pre><code class="elixir">. . .
+defp welcome_html do
+  Phoenix.View.render_to_string(Hello.EmailView, &quot;welcome.html&quot;, %{})
+end
+. . .</code></pre>
+<p>With that our <code class="inline">send_welcome_email/1</code> function looks much nicer.</p>
+<pre><code class="elixir">def send_welcome_email(email_address) do
+  send_email to: email_address,
+             from: @from,
+             subject: &quot;Welcome!&quot;,
+             text: welcome_text,
+             html: welcome_html
+end</code></pre>
+<h3>Sending attachments</h3>
+<p>Mailgun also lets us send attachments with an email. We’ll use the <code class="inline">:attachments</code> key to tell <code class="inline">mailgun</code> that we want to include one or more of them. The value we give it needs to be a list of two element maps. One element of each map needs to be the path to a file we want to attach. The other needs to be the filename.</p>
+<p>Sending new users a copy of the Phoenix framework logo with their welcome email would look like this.</p>
+<pre><code class="elixir">def send_welcome_email(email_address) do
+  send_email to: email_address,
+             from: @from,
+             subject: &quot;Welcome!&quot;,
+             text: welcome_text,
+             html: welcome_html,
+             attachments: [%{path: &quot;priv/static/images/phoenix.png&quot;, filename: &quot;phoenix.png&quot;}]
+end</code></pre>
+<p>If we put our mailer client back in test mode, restart our application, and call the <code class="inline">send_welcome_email/1</code> function with our email address, we’ll see our attachment at the very end.</p>
+<pre><code class="console">more mailgun.json
+{&quot;to&quot;:&quot;us@example.com&quot;,&quot;text&quot;:&quot;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n&quot;,&quot;subject&quot;:&quot;Welcome!&quot;,&quot;html&quot;:&quot;&lt;div class=\&quot;jumbotron\&quot;&gt;\n  &lt;h2&gt;Welcome to Hello!&lt;/h2&gt;\n&lt;/div&gt;&quot;,&quot;from&quot;:&quot;Mailgun Sandbox &lt;postmaster@sandbox-our-domain.mailgun.org&gt;&quot;,&quot;attachments&quot;:[{&quot;path&quot;:&quot;priv/static/images/phoenix.png&quot;,&quot;filename&quot;:&quot;phoenix.png&quot;}]}</code></pre>
+<p>Then we can take the mailer out of test mode and actually send it.</p>
+
+      <footer class="footer">
+        <p>
+          <span class="line">
+            Built using
+            <a href="https://github.com/elixir-lang/ex_doc" title="ExDoc" rel="help" target="_blank">ExDoc</a> (v0.14.3),
+          </span>
+          <span class="line">
+            designed by
+            <a href="https://twitter.com/dignifiedquire" target="_blank" title="@dignifiedquire">Friedel Ziegelmayer</a>.
+            </span>
+        </p>
+        <button class="night-mode-toggle" />
+      </footer>
+    </div>
+  </div>
+</section>
+</div>
+  <script src="dist/app-574613960f.js"></script>
+  </body>
+</html>
+

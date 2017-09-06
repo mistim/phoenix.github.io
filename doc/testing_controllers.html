@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="ExDoc v0.14.3">
+    <title>Testing Controllers – Phoenix Guides v1.3.0-dev</title>
+    <link rel="stylesheet" href="dist/app-091c05798a.css" />
+    
+    <script src="dist/sidebar_items.js"></script>
+  </head>
+  <body data-type="extras">
+    <script>if(localStorage.getItem('night-mode')) document.body.className += ' night-mode';</script>
+
+<div class="main">
+<button class="sidebar-toggle">
+  <i class="icon-menu"></i>
+</button>
+<section class="sidebar">
+
+  
+  <a href="http://www.phoenixframework.org" class="sidebar-projectLink">
+    <div class="sidebar-projectDetails">
+      <h1 class="sidebar-projectName">
+        Phoenix Guides
+      </h1>
+      <h2 class="sidebar-projectVersion">
+        v1.3.0-dev
+      </h2>
+    </div>
+    
+      <img src="assets/logo.png" alt="Phoenix Guides" class="sidebar-projectImage">
+    
+  </a>
+
+  <div class="sidebar-search">
+    <i class="icon-search"></i>
+    <input type="text" class="sidebar-searchInput" placeholder="search" autocomplete="off" />
+  </div>
+
+  <ul class="sidebar-listNav">
+    <li><a id="extras-list" href="#full-list">GUIDES</a></li>
+
+    
+      <li><a id="modules-list" href="#full-list">Modules</a></li>
+    
+
+    
+
+    
+  </ul>
+  <div class="gradient"></div>
+  <ul id="full-list" class="sidebar-fullList"></ul>
+</section>
+
+<section class="content">
+  <div class="content-outer">
+    <div id="content" class="content-inner">
+
+
+<h1>Testing Controllers</h1>
+<p>We’re going to take a look at how we might test drive a controller which has endpoints for a JSON api.</p>
+<p>Phoenix has a generator for creating a JSON resource which looks like this:</p>
+<h3>Set up</h3>
+<pre><code class="bash">mix phoenix.gen.json Thing things some_attr:string another_attr:string</code></pre>
+<p>Thing is the Model, things is the table name, and some_attr and another_attr are database columns on table things of type string. Don’t run this command, we’re going to explore test driving out a similar result to what a generator would give us.</p>
+<p>Let’s create a <code class="inline">User</code> model. Since model creation is not in scope of this guide, we will use the generator.  If you aren’t familiar, read <a href="mix_tasks.html#phoenix-specific-mix-tasks">this section of the Mix guide</a>.</p>
+<pre><code class="bash">$ mix phoenix.gen.model User users name:string email:string</code></pre>
+<p>Now run migrations:</p>
+<pre><code class="bash">$ mix ecto.migrate</code></pre>
+<h3>Test driving</h3>
+<p>What we are going for is a controller with the standard CRUD actions. We’ll start with our test since we’re TDDing this. Create a <code class="inline">user_controller_test.exs</code> file in <code class="inline">test/controllers</code></p>
+<pre><code class="elixir"># test/controllers/user_controller_test.exs
+
+defmodule HelloPhoenix.UserControllerTest do
+  use HelloPhoenix.ConnCase, async: true
+
+end</code></pre>
+<p>There are many ways to approach TDD. Here, we will think about each action we want to perform, and handle the “happy path” where things go as planned, and the error case where something goes wrong, if applicable.</p>
+<pre><code class="elixir"># test/controllers/user_controller_test.exs
+
+defmodule HelloPhoenix.UserControllerTest do
+  use HelloPhoenix.ConnCase, async: true
+
+  test &quot;index/2 responds with all Users&quot;
+
+  describe &quot;create/2&quot; do
+    test &quot;Creates, and responds with a newly created user if attributes are valid&quot;
+    test &quot;Returns an error and does not create a user if attributes are invalid&quot;
+  end
+
+  describe &quot;show/2&quot; do
+    test &quot;Responds with a newly created user if the user is found&quot;
+    test &quot;Responds with a message indicating user not found&quot;
+  end
+
+  describe &quot;update/2&quot; do
+    test &quot;Edits, and responds with the user if attributes are valid&quot;
+    test &quot;Returns an error and does not edit the user if attributes are invalid&quot;
+  end
+
+  test &quot;delete/2 and responds with :ok if the user was deleted&quot;
+
+end</code></pre>
+<p>Here we have tests around the 5 controller CRUD actions we need to implement for a typical JSON API. In 2 cases, index and delete, we are only testing the happy path, because in our case they generally won’t fail because of domain rules (or lack thereof). In practical application, our delete could fail easily once we have associated resources that cannot leave orphaned resources behind, or number of other situations. On index, we could have filtering and searching to test. Also, both could require authorization.</p>
+<p>Create, show and update have more typical ways to fail because they need a way to find the resource, which could be non existent, or invalid data was supplied in the params. Since we have multiple tests for each of these endpoints, putting them in a <code class="inline">describe</code> block is good way to organize our tests.</p>
+<p>Let’s run the test:</p>
+<pre><code class="bash">$ mix test test/controllers/user_controller_test.exs</code></pre>
+<p>We get 8 failures that say “Not yet implemented” which is good. Our tests don’t have blocks yet.</p>
+<p>Let’s add our first test. We’ll start with <code class="inline">index/2</code>.</p>
+<pre><code class="elixir">defmodule HelloPhoenix.UserControllerTest do
+  use HelloPhoenix.ConnCase, async: true
+
+  alias HelloPhoenix.{Repo, User}
+
+  test &quot;index/2 responds with all Users&quot; do
+    users = [ User.changeset(%User{}, %{name: &quot;John&quot;, email: &quot;john@example.com&quot;}),
+              User.changeset(%User{}, %{name: &quot;Jane&quot;, email: &quot;jane@example.com&quot;}) ]
+
+    Enum.each(users, &amp;Repo.insert!(&amp;1))
+
+    response = build_conn
+    |&gt; get(user_path(build_conn, :index))
+    |&gt; json_response(200)
+
+    expected = %{
+      &quot;data&quot; =&gt; [
+        %{ &quot;name&quot; =&gt; &quot;John&quot;, &quot;email&quot; =&gt; &quot;john@example.com&quot; },
+        %{ &quot;name&quot; =&gt; &quot;Jane&quot;, &quot;email&quot; =&gt; &quot;jane@example.com&quot; }
+      ]
+    }
+
+    assert response == expected
+  end</code></pre>
+<p>Let’s take a look at what’s going on here. We build our users, and use the <code class="inline">get</code> function to make a <code class="inline">GET</code> request to our <code class="inline">UserController</code> index action, which is piped into <code class="inline">json_response/2</code> along with the expected HTTP status code.  This will return the JSON from the response body, when everything is wired up properly. We represent the JSON we want the controller action to return with the variable <code class="inline">expected</code>, and assert that the <code class="inline">response</code> and <code class="inline">expected</code> are the same.</p>
+<p>Our expected data is a JSON response with a top level key of <code class="inline">&quot;data&quot;</code> containing an array of users that have <code class="inline">&quot;name&quot;</code> and <code class="inline">&quot;email&quot;</code> properties.</p>
+<p>When we run the test we get an error that we have no <code class="inline">user_path</code> function.</p>
+<p>In our router, we’ll add a resource for <code class="inline">User</code> in our API pipe:</p>
+<pre><code class="elixir">defmodule HelloPhoenix.Router do
+  use HelloPhoenix.Web, :router
+
+  pipeline :browser do
+    plug :accepts, [&quot;html&quot;]
+    plug :fetch_session
+    plug :fetch_flash
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+  end
+
+  pipeline :api do
+    plug :accepts, [&quot;json&quot;]
+    resources &quot;/users&quot;, HelloPhoenix.UserController
+  end
+
+  #...</code></pre>
+<p>We should get a new error now. Running the test informs us we don’t have a <code class="inline">UserController</code>. Let’s add it, along with the <code class="inline">index/2</code> action we’re testing. Our test description has us returning all users:</p>
+<pre><code class="elixir">defmodule HelloPhoenix.UserController do
+  use HelloPhoenix.Web, :controller
+
+  alias HelloPhoenix.{User, Repo}
+
+  def index(conn, _params) do
+    users = Repo.all(User)
+    render conn, &quot;index.json&quot;, users: users
+  end
+
+end</code></pre>
+<p>When we run the test again, our failing test tells us we have no view. Let’s add it. Our test specifies a JSON format with a top key of <code class="inline">&quot;data&quot;</code>, containing an array of users with attributes <code class="inline">&quot;name&quot;</code> and <code class="inline">&quot;email&quot;</code>.</p>
+<pre><code class="elixir">defmodule HelloPhoenix.UserView do
+  use HelloPhoenix.Web, :view
+
+  def render(&quot;index.json&quot;, %{users: users}) do
+    %{data: render_many(users, HelloPhoenix.UserView, &quot;user.json&quot;)}
+  end
+
+  def render(&quot;user.json&quot;, %{user: user}) do
+    %{name: user.name, email: user.email}
+  end
+
+end</code></pre>
+<p>And with that, our test passes when we run it.</p>
+<p>We’ll also cover the <code class="inline">show/2</code> action here so we can see how to handle an error case.</p>
+<p>Our show tests currently look like this:</p>
+<pre><code class="elixir">  describe &quot;show/2&quot; do
+    test &quot;Responds with a newly created user if the user is found&quot;
+    test &quot;Responds with a message indicating user not found&quot;
+  end</code></pre>
+<p>Run this test only by running the following command: (if your show tests don’t start on line 32, change the line number accordingly)</p>
+<pre><code class="bash">$ mix test test/controllers/user_controller_test.exs:32</code></pre>
+<p>Our first <code class="inline">show/2</code> test result is, as expected, not yet implemented.
+Let’s build a test around what we think a successful <code class="inline">show/2</code> should look like.</p>
+<pre><code class="elixir">test &quot;Responds with a newly created user if the user is found&quot; do
+  user = User.changeset(%User{}, %{name: &quot;John&quot;, email: &quot;john@example.com&quot;})
+  |&gt; Repo.insert!
+
+  response = build_conn
+  |&gt; get(user_path(build_conn, :show, user.id))
+  |&gt; json_response(200)
+
+  expected = %{ &quot;data&quot; =&gt; %{ &quot;name&quot; =&gt; &quot;John&quot;, &quot;email&quot; =&gt; &quot;john@example.com&quot; } }
+
+  assert response == expected
+end</code></pre>
+<p>This is very similar to our <code class="inline">index/2</code> test, except <code class="inline">show/2</code> requires a user id, and our data is a single JSON object instead of an array.</p>
+<p>When we run our test tells us we need a <code class="inline">show/2</code> action.</p>
+<pre><code class="elixir">defmodule HelloPhoenix.UserController do
+  use HelloPhoenix.Web, :controller
+
+  alias HelloPhoenix.{User, Repo}
+
+  def index(conn, _params) do
+    users = Repo.all(User)
+    render conn, &quot;index.json&quot;, users: users
+  end
+
+  def show(conn, %{&quot;id&quot; =&gt; id}) do
+    case Repo.get(User, id) do
+      user -&gt; render conn, &quot;show.json&quot;, user: user
+    end
+  end
+end</code></pre>
+<p>You’ll notice we only handle the case where we successfully find a user. When we TDD we only want to write enough code to make the test pass. We’ll add more code when we get to the error handling test for <code class="inline">show/2</code>.</p>
+<p>Running the test tells us we need a <code class="inline">render/2</code> function that can pattern match on <code class="inline">&quot;show.json&quot;</code>:</p>
+<pre><code class="elixir">defmodule HelloPhoenix.UserView do
+  use HelloPhoenix.Web, :view
+
+  def render(&quot;index.json&quot;, %{users: users}) do
+    %{data: render_many(users, HelloPhoenix.UserView, &quot;user.json&quot;)}
+  end
+
+  def render(&quot;show.json&quot;, %{user: user}) do
+    %{data: render_one(user, HelloPhoenix.UserView, &quot;user.json&quot;)}
+  end
+
+  def render(&quot;user.json&quot;, %{user: user}) do
+    %{name: user.name, email: user.email}
+  end
+
+end</code></pre>
+<p>When we run the test again, it passes.</p>
+<p>The last item we’ll cover is the case where we don’t find a user in <code class="inline">show/2</code>.</p>
+<p>Try this one on your own and see what you come up with.  One possible solution will be given below.</p>
+<p>Walking through our TDD steps, we add a test that supplies a non existent user id to <code class="inline">user_path</code> which returns a 404 status and an error message:</p>
+<pre><code class="elixir">test &quot;Responds with a message indicating user not found&quot; do
+  response = build_conn
+  |&gt; get(user_path(build_conn, :show, 300))
+  |&gt; json_response(404)
+
+  expected = %{ &quot;error&quot; =&gt; &quot;User not found.&quot; }
+
+  assert response == expected
+end</code></pre>
+<p>We want a HTTP code of 404 to notify the requester that this resource was not found, as well as an accompanying error message.</p>
+<p>Our controller action:</p>
+<pre><code class="elixir">def show(conn, %{&quot;id&quot; =&gt; id}) do
+  case Repo.get(User, id) do
+    nil -&gt; conn |&gt; put_status(404) |&gt; render(&quot;error.json&quot;)
+    user -&gt; render conn, &quot;show.json&quot;, user: user
+  end
+end</code></pre>
+<p>And our view:</p>
+<pre><code class="elixir">def render(&quot;error.json&quot;, _assigns) do
+  %{error: &quot;User not found.&quot;}
+end</code></pre>
+<p>With those implemented, our tests pass.</p>
+<p>The rest of the controller is left to you to implement as practice. Happy testing!</p>
+
+      <footer class="footer">
+        <p>
+          <span class="line">
+            Built using
+            <a href="https://github.com/elixir-lang/ex_doc" title="ExDoc" rel="help" target="_blank">ExDoc</a> (v0.14.3),
+          </span>
+          <span class="line">
+            designed by
+            <a href="https://twitter.com/dignifiedquire" target="_blank" title="@dignifiedquire">Friedel Ziegelmayer</a>.
+            </span>
+        </p>
+        <button class="night-mode-toggle" />
+      </footer>
+    </div>
+  </div>
+</section>
+</div>
+  <script src="dist/app-574613960f.js"></script>
+  </body>
+</html>
+

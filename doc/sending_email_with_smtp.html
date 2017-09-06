@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="ExDoc v0.14.3">
+    <title>Sending Email with SMTP – Phoenix Guides v1.3.0-dev</title>
+    <link rel="stylesheet" href="dist/app-091c05798a.css" />
+    
+    <script src="dist/sidebar_items.js"></script>
+  </head>
+  <body data-type="extras">
+    <script>if(localStorage.getItem('night-mode')) document.body.className += ' night-mode';</script>
+
+<div class="main">
+<button class="sidebar-toggle">
+  <i class="icon-menu"></i>
+</button>
+<section class="sidebar">
+
+  
+  <a href="http://www.phoenixframework.org" class="sidebar-projectLink">
+    <div class="sidebar-projectDetails">
+      <h1 class="sidebar-projectName">
+        Phoenix Guides
+      </h1>
+      <h2 class="sidebar-projectVersion">
+        v1.3.0-dev
+      </h2>
+    </div>
+    
+      <img src="assets/logo.png" alt="Phoenix Guides" class="sidebar-projectImage">
+    
+  </a>
+
+  <div class="sidebar-search">
+    <i class="icon-search"></i>
+    <input type="text" class="sidebar-searchInput" placeholder="search" autocomplete="off" />
+  </div>
+
+  <ul class="sidebar-listNav">
+    <li><a id="extras-list" href="#full-list">GUIDES</a></li>
+
+    
+      <li><a id="modules-list" href="#full-list">Modules</a></li>
+    
+
+    
+
+    
+  </ul>
+  <div class="gradient"></div>
+  <ul id="full-list" class="sidebar-fullList"></ul>
+</section>
+
+<section class="content">
+  <div class="content-outer">
+    <div id="content" class="content-inner">
+
+
+<h1>Sending Email with SMTP</h1>
+<p>Sending email from a Phoenix application is easy with SMTP and community
+libraries.</p>
+<p>First you will need an SMTP service provider, such as <a href="https://aws.amazon.com/ses/">Amazon Simple Email
+Service</a>, <a href="https://www.mailgun.com/">Mailgun</a>, or
+<a href="https://sendgrid.com/">SendGrid</a>. Go ahead and sign up for one, often there
+is a free tier that can be used to try out the service.</p>
+<p>Once we have a provider, we’ll need to add
+<a href="https://github.com/thoughtbot/bamboo"><code class="inline">bamboo</code></a> and
+<a href="https://github.com/fewlinesco/bamboo_smtp"><code class="inline">bamboo_smtp</code></a> as dependencies to
+our project. We’ll do that in the <code class="inline">deps/0</code> function in <code class="inline">mix.exs</code>.</p>
+<pre><code class="elixir">defp deps do
+  [{:phoenix, &quot;~&gt; 1.2.1&quot;},
+   {:phoenix_pubsub, &quot;~&gt; 1.0&quot;},
+   {:phoenix_ecto, &quot;~&gt; 3.0&quot;},
+   {:postgrex, &quot;&gt;= 0.0.0&quot;},
+   {:phoenix_html, &quot;~&gt; 2.6&quot;},
+   {:phoenix_live_reload, &quot;~&gt; 1.0&quot;, only: :dev},
+   {:gettext, &quot;~&gt; 0.11&quot;},
+   {:cowboy, &quot;~&gt; 1.0&quot;},
+   {:bamboo, &quot;~&gt; 0.7&quot;},
+   {:bamboo_smtp, &quot;~&gt; 1.2.1&quot;}]
+end</code></pre>
+<p>Next, we’ll need to run <code class="inline">mix deps.get</code> to bring the two new packages into our
+application.</p>
+<p>Once the packages have been fetched add the <code class="inline">:bamboo</code> application to our
+<code class="inline">application/0</code> function in <code class="inline">mix.exs</code>.</p>
+<pre><code class="elixir">def application do
+  [mod: {MyApp, []},
+    applications: [:phoenix, :phoenix_html, :cowboy, :logger, :gettext,
+                  :phoenix_ecto, :postgrex, :bamboo]]
+end</code></pre>
+<h3>Configuration</h3>
+<p>We’ll also need to add our SMTP details to <code class="inline">config/config.ex</code>. These will be
+provided by the SMTP service you signed up to, so check your account on there.</p>
+<p>For security reasons, it’s important to not commit these values to a public
+source code repository. There are a couple of ways we can accomplish this.</p>
+<p>Set up environment variables for our <code class="inline">SMTP_USERNAME</code> and <code class="inline">SMTP_PASSWORD</code>. With
+the environment variables set, we can reference them in our
+<code class="inline">config/config.exs</code> file.</p>
+<p>Be sure to replace <code class="inline">:my_app</code> with the atom name of your application.</p>
+<pre><code class="elixir"># In your config/config.exs file
+config :my_app, MyApp.Mailer,
+  adapter: Bamboo.SMTPAdapter,
+  server: &quot;smtp.domain&quot;,
+  port: 1025,
+  username: System.get_env(&quot;SMTP_USERNAME&quot;),
+  password: System.get_env(&quot;SMTP_PASSWORD&quot;),
+  tls: :if_available, # can be `:always` or `:never`
+  ssl: false, # can be `true`
+  retries: 1</code></pre>
+<p>These variables will need to be set on the production servers, as well
+as on our development machines. Please see the <a href="http://www.phoenixframework.org/docs/deployment">Deployment Introduction
+Guide</a> for more information.</p>
+<h3>The Mailer and Emails</h3>
+<p>In order for our application to send emails, we’ll need a mailer module. Let’s
+define one here <code class="inline">lib/app/mailer.ex</code>. When we <code class="inline">use</code> the <code class="inline">Bamboo.Mailer</code> module
+in the second line, we pass in the atom name of our application.</p>
+<pre><code class="elixir">defmodule MyApp.Mailer do
+  use Bamboo.Mailer, otp_app: :my_app
+end</code></pre>
+<p>We’ll also need a new view module for emails. We can define this in
+<code class="inline">lib/hello_web/views/email_view.ex</code>.</p>
+<pre><code class="elixir">defmodule MyApp.EmailView do
+  use MyApp.Web, :view
+end</code></pre>
+<p>Lastly we need another module that will contain our emails, which we can
+define in <code class="inline">lib/my_app/email.ex</code>.</p>
+<pre><code class="elixir">defmodule MyApp.Email do
+  use Bamboo.Phoenix, view: MyApp.EmailView
+end</code></pre>
+<p>With this in place, we can start creating our custom email functions. Web
+applications may send any number of different types of emails - welcome emails
+after signup, password confirmations, activity notifications - the list goes
+on. For each type of email, we’ll define a new function which will call
+<a href="https://hexdocs.pm/bamboo/0.7.0/Bamboo.Email.html#new_email/1"><code class="inline">new_email/1</code></a>
+in order to build the email.</p>
+<p>Let’s say we want to send a welcome email to new users formatted as plain
+text. We’ll need to know who to send the email to, as well as the “from”
+address, subject, and body of the email. This will be sent as a plain text
+email because we’ve specified the <code class="inline">:text</code> option.</p>
+<pre><code class="elixir">defmodule MyApp.Email do
+  use Bamboo.Phoenix, view: MyApp.EmailView
+
+  def welcome_text_email(email_address) do
+    new_email
+    |&gt; to(email_address)
+    |&gt; from(&quot;us@example.com&quot;)
+    |&gt; subject(&quot;Welcome!&quot;)
+    |&gt; text_body(&quot;Welcome to MyApp!&quot;)
+  end
+end</code></pre>
+<p>Building the email is as easy as invoking the function with an email address.
+Once we have the email we can then send it by piping into a delivery function
+from our Mailer module. We can do this from wherever we want to in our
+application.</p>
+<pre><code class="elixir">MyApp.Email.welcome_text_email(&quot;us@example.com&quot;) |&gt; Mailer.deliver_now</code></pre>
+<p>We can also deliver emails asyncronously in the background rather than waiting
+for the email to be be sent.</p>
+<pre><code class="elixir">MyApp.Email.welcome_text_email(&quot;us@example.com&quot;) |&gt; Mailer.deliver_later</code></pre>
+<p>See the Bamboo <a href="https://github.com/thoughtbot/bamboo#delivering-emails-in-the-background">README</a>
+for more information.</p>
+<h4>HTML Emails</h4>
+<p>We can build HTML emails as well. To do this, we can define a new function
+which builds the text email, and then pipes it into the <code class="inline">html_body/2</code> function
+to add the HTML body content.</p>
+<pre><code class="elixir">defmodule MyApp.Email do
+  use Bamboo.Phoenix, view: MyApp.EmailView
+
+  def welcome_text_email(email_address) do
+    new_email()
+    |&gt; to(email_address)
+    |&gt; from(&quot;us@example.com&quot;)
+    |&gt; subject(&quot;Welcome!&quot;)
+    |&gt; text_body(&quot;Welcome to MyApp!&quot;)
+  end
+
+  def welcome_html_email(email_address) do
+    email_address
+    |&gt; welcome_text_email()
+    |&gt; html_body(&quot;&lt;strong&gt;Welcome&lt;strong&gt; to MyApp!&quot;)
+  end
+end</code></pre>
+<p>When we call the <code class="inline">welcome_html_email/1</code> function we get a multipart email that
+has both text and HTML content. Clients will try to render an HTML version
+first, then fall back to plain text if they are unable to do so.</p>
+<h3>Using Views</h3>
+<p>What we’ve written so far is fine, but for a real-world welcome email, we’re
+going to need more than a few words of text or a single HTML tag. With more
+text or HTML, though, our email functions will become large and unwieldy quite
+quickly. The solution is to reuse the Phoenix view functionality to store the
+email formatting and content elsewhere.</p>
+<p>In our app’s layout template directory we can create two new layouts, one for
+HTML emails, one for text emails.</p>
+<p><code class="inline">lib/hello_web/templates/layout/email.html.eex</code> could look like this:</p>
+<pre><code class="html">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;meta charset=&quot;utf-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width&quot;&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;p&gt;Hello!&lt;/p&gt;
+    &lt;%= render @view_module, @view_template, assigns %&gt;
+    &lt;p&gt;- The MyApp Team.&lt;/p&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<p><code class="inline">lib/hello_web/templates/layout/email.text.eex</code> could look like this:</p>
+<pre><code class="elixir">Hello!
+
+&lt;%= render @view_module, @view_template, assigns %&gt;
+
+- The MyApp Team.</code></pre>
+<p>Once we have these templates we can use the <code class="inline">put_text_layout/2</code> and
+<code class="inline">put_html_layout/2</code> functions to wrap the content of our emails with the
+layouts.</p>
+<pre><code class="elixir">defmodule MyApp.Email do
+  use Bamboo.Phoenix, view: MyApp.EmailView
+
+  def welcome_text_email(email_address) do
+    new_email()
+    |&gt; to(email_address)
+    |&gt; from(&quot;us@example.com&quot;)
+    |&gt; subject(&quot;Welcome!&quot;)
+    |&gt; text_body(&quot;Welcome to MyApp!&quot;)
+    |&gt; put_text_layout({MyApp.LayoutView, &quot;email.text&quot;})
+  end
+
+  def welcome_html_email(email_address) do
+    email_address
+    |&gt; welcome_text_email()
+    |&gt; html_body(&quot;&lt;strong&gt;Welcome&lt;strong&gt; to MyApp!&quot;)
+    |&gt; put_html_layout({MyApp.LayoutView, &quot;email.html&quot;})
+  end
+end</code></pre>
+<p>The process for moving the email content to a template is similar. Again we
+create two new templates, one for text, one for HTML.</p>
+<p><code class="inline">lib/hello_web/templates/email/welcome.html.eex</code> could look like this:</p>
+<pre><code class="html">&lt;p&gt;
+  &lt;strong&gt;Welcome&lt;strong&gt; to MyApp!
+&lt;/p&gt;</code></pre>
+<p><code class="inline">lib/hello_web/templates/email/welcome.text.eex</code> could look like this:</p>
+<pre><code class="elixir">Welcome to MyApp!</code></pre>
+<p>And then we would replace the calls to <code class="inline">text_body/2</code> and <code class="inline">html_body/2</code> with a
+call to <code class="inline">render/2</code>.</p>
+<pre><code class="elixir">defmodule MyApp.Email do
+  use Bamboo.Phoenix, view: MyApp.EmailView
+
+  def welcome_text_email(email_address) do
+    new_email()
+    |&gt; to(email_address)
+    |&gt; from(&quot;us@example.com&quot;)
+    |&gt; subject(&quot;Welcome!&quot;)
+    |&gt; put_text_layout({MyApp.LayoutView, &quot;email.text&quot;})
+    |&gt; render(&quot;welcome.text&quot;)
+  end
+
+  def welcome_html_email(email_address) do
+    email_address
+    |&gt; welcome_text_email()
+    |&gt; put_html_layout({MyApp.LayoutView, &quot;email.html&quot;})
+    |&gt; render(&quot;welcome.html&quot;)
+  end
+end</code></pre>
+<p>Now all our markup has been moved to templates, and our email building
+functions are nice and simple!</p>
+<p>Lastly, if we wanted variable data in our templates we would just use
+assignment as usual with the view render function.</p>
+<p><code class="inline">lib/hello_web/templates/email/welcome.html.eex</code> could look like this:</p>
+<pre><code class="html">&lt;p&gt;
+  &lt;strong&gt;Welcome&lt;strong&gt; to MyApp!
+&lt;/p&gt;
+&lt;p&gt;
+  Your email address is &lt;%= @email_address %&gt;
+&lt;/p&gt;</code></pre>
+<pre><code class="elixir">defmodule MyApp.Email do
+  use Bamboo.Phoenix, view: MyApp.EmailView
+
+  def welcome_text_email(email_address) do
+    new_email()
+    |&gt; to(email_address)
+    |&gt; from(&quot;us@example.com&quot;)
+    |&gt; subject(&quot;Welcome!&quot;)
+    |&gt; put_text_layout({MyApp.LayoutView, &quot;email.text&quot;})
+    |&gt; render(&quot;welcome.text&quot;)
+  end
+
+  def welcome_html_email(email_address) do
+    email_address
+    |&gt; welcome_text_email()
+    |&gt; put_html_layout({MyApp.LayoutView, &quot;email.html&quot;})
+    |&gt; render(&quot;welcome.html&quot;, email_address: email_address) # &lt;= Assignments
+  end
+end</code></pre>
+<h3>Further Information</h3>
+<p>To learn more about using the Bamboo email library see the <a href="https://github.com/thoughtbot/bamboo#readme">Bamboo
+documentation</a>.</p>
+
+      <footer class="footer">
+        <p>
+          <span class="line">
+            Built using
+            <a href="https://github.com/elixir-lang/ex_doc" title="ExDoc" rel="help" target="_blank">ExDoc</a> (v0.14.3),
+          </span>
+          <span class="line">
+            designed by
+            <a href="https://twitter.com/dignifiedquire" target="_blank" title="@dignifiedquire">Friedel Ziegelmayer</a>.
+            </span>
+        </p>
+        <button class="night-mode-toggle" />
+      </footer>
+    </div>
+  </div>
+</section>
+</div>
+  <script src="dist/app-574613960f.js"></script>
+  </body>
+</html>
+

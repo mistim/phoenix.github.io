@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="ExDoc v0.14.3">
+    <title>Seeding Data – Phoenix Guides v1.3.0-dev</title>
+    <link rel="stylesheet" href="dist/app-091c05798a.css" />
+    
+    <script src="dist/sidebar_items.js"></script>
+  </head>
+  <body data-type="extras">
+    <script>if(localStorage.getItem('night-mode')) document.body.className += ' night-mode';</script>
+
+<div class="main">
+<button class="sidebar-toggle">
+  <i class="icon-menu"></i>
+</button>
+<section class="sidebar">
+
+  
+  <a href="http://www.phoenixframework.org" class="sidebar-projectLink">
+    <div class="sidebar-projectDetails">
+      <h1 class="sidebar-projectName">
+        Phoenix Guides
+      </h1>
+      <h2 class="sidebar-projectVersion">
+        v1.3.0-dev
+      </h2>
+    </div>
+    
+      <img src="assets/logo.png" alt="Phoenix Guides" class="sidebar-projectImage">
+    
+  </a>
+
+  <div class="sidebar-search">
+    <i class="icon-search"></i>
+    <input type="text" class="sidebar-searchInput" placeholder="search" autocomplete="off" />
+  </div>
+
+  <ul class="sidebar-listNav">
+    <li><a id="extras-list" href="#full-list">GUIDES</a></li>
+
+    
+      <li><a id="modules-list" href="#full-list">Modules</a></li>
+    
+
+    
+
+    
+  </ul>
+  <div class="gradient"></div>
+  <ul id="full-list" class="sidebar-fullList"></ul>
+</section>
+
+<section class="content">
+  <div class="content-outer">
+    <div id="content" class="content-inner">
+
+
+<h1>Seeding Data</h1>
+<p>When creating an app, it’s important that we’re able to seed our datastore with some initial data (e.g., for early development work or pre-launch testing purposes).</p>
+<p>Fortunately, Phoenix already provides us with a convention for seeding data. By default Phoenix generates a script file for each app at <code class="inline">priv/repo/seeds.exs</code>, which we can use to populate our datastore.</p>
+<p>Also note that in order to seed data as in the example below you should have already generated and run the related migration (i.e., Link migration, controller, model, etc.) and updated your <code class="inline">router.ex</code>, as described in the <a href="ecto_models.html">Ecto Models Guide</a> (if you haven’t completed that Guide yet, you should do so before proceeding further).</p>
+<p>So in order to seed data, we simply need to add a script to <code class="inline">seeds.exs</code> that uses our datastore to directly add the data we want. As you can see from the comments that Phoenix generated for us in <code class="inline">seeds.exs</code> file, we should follow this pattern:</p>
+<pre><code class="elixir">  &lt;%= application_module %&gt;.Repo.insert!(%&lt;%= application_module %&gt;.SomeModel{})</code></pre>
+<p>For example, if we were creating an app called Linker and wanted to seed a Link table in our datastore with with a series of links, we could simply add the following script to our <code class="inline">seeds.exs</code> file:</p>
+<pre><code class="elixir">  ...
+  alias Linker.Repo
+  alias Linker.Link
+
+  Repo.insert! %Link{
+    title: &quot;Phoenix Framework&quot;,
+    url: &quot;http://www.phoenixframework.org/&quot;
+  }
+
+  Repo.insert! %Link{
+    title: &quot;Elixir&quot;,
+    url: &quot;http://elixir-lang.org/&quot;
+  }
+
+  Repo.insert! %Link{
+    title: &quot;Erlang&quot;,
+    url: &quot;https://www.erlang.org/&quot;
+  }
+  ...</code></pre>
+<p>With this script, we’ve set up some aliases and then progressed through a list of our Links which will each be written to the datastore when we run the <code class="inline">seeds.exs</code> file with mix run:</p>
+<pre><code class="elixir">  mix run priv/repo/seeds.exs</code></pre>
+<p>Note that if we wanted to delete/scrub all prior data that we seeded in the Link table, we could also include <code class="inline">Repo.delete_all Link</code> in your script immediate above <code class="inline">Repo.insert!</code></p>
+<p>We can also create a module to seed our data.
+The reason this is sometimes advantageous is it allows us to quickly seed from IEx, and also keeps things modular.
+For example:</p>
+<pre><code class="elixir">defmodule &lt;%= application_name %&gt;.DatabaseSeeder do
+  alias &lt;%= application_name %&gt;.Repo
+  alias &lt;%= application_name %&gt;.Link
+
+  @titles_list [&quot;Erlang&quot;, &quot;Elixir&quot;, &quot;Phoenix Framework&quot;] # list of titles
+  @urls_list [&quot;http://www.erlang.org&quot;, &quot;http://www.elixir-lang.org&quot;, &quot;http://www.phoenixframework.org&quot;] # list of urls
+
+  def insert_link do
+    Repo.insert! %Link{
+      title: (@titles_list |&gt; Enum.take_random),
+      url: (@urls_list |&gt; Enum.take_random)
+    }
+  end
+
+  def clear do
+    Repo.delete_all
+  end
+end
+
+(1..100) |&gt; Enum.each(fn _ -&gt; &lt;%= application_name %&gt;.DatabaseSeeder.insert_link end)</code></pre>
+<p>Now, we could add links trivially to our database in IEx like so:</p>
+<pre><code class="elixir">$ iex -S mix
+iex(1)&gt; &lt;%= application_name %&gt;.DatabaseSeeder.add_link
+iex(2)&gt; &lt;%= application_name %&gt;.Link |&gt; &lt;%= application_name %&gt;.Repo.all
+#=&gt; [%&lt;%= application_name %&gt;.Link{...}]</code></pre>
+<p>This is nice for experimenting in IEx during development in many cases.</p>
+<h4>Models are Initialized</h4>
+<p>Conveniently, when following this convention, Phoenix makes sure that our models are appropriately initialized; and as long as we use the bang functions (e.g.,  <code class="inline">insert!</code>, <code class="inline">update!</code>, etc.), they will also fail if something goes wrong.</p>
+<p>This is helpful, since it means that if we make a programming error (e.g., attempting to add a duplicate entry to a table where the field is required to be unique), the data in our database won’t lose its integrity. The database will refuse to execute the query and Ecto will throw an exception, such as:</p>
+<pre><code class="elixir">  ** (Ecto.ConstraintError) constraint error when attempting to insert model:</code></pre>
+<p>Which will be followed by a description of any constraint errors.</p>
+<p>In the development environment, we can also modify our script to check for errors before executing the bang functions (e.g., checking for duplicates) to prevent them from failing.</p>
+
+      <footer class="footer">
+        <p>
+          <span class="line">
+            Built using
+            <a href="https://github.com/elixir-lang/ex_doc" title="ExDoc" rel="help" target="_blank">ExDoc</a> (v0.14.3),
+          </span>
+          <span class="line">
+            designed by
+            <a href="https://twitter.com/dignifiedquire" target="_blank" title="@dignifiedquire">Friedel Ziegelmayer</a>.
+            </span>
+        </p>
+        <button class="night-mode-toggle" />
+      </footer>
+    </div>
+  </div>
+</section>
+</div>
+  <script src="dist/app-574613960f.js"></script>
+  </body>
+</html>
+
